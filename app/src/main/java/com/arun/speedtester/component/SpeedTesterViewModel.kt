@@ -78,26 +78,20 @@ class SpeedTesterViewModel @Inject constructor(
         sim2RssiValue =value
     }
 
+    private var testRunning = ""
+    private var simUsedInTest = "sim1"
+    private var showErrorMessage by mutableStateOf(false)
+    private var messageForScaffoldState by mutableStateOf("")
+
     /**
      * spedd examples server uri.
      */
     private val SPEED_TEST_SERVER_URI_DL = "http://ipv4.ikoula.testdebit.info/10M.iso"
 
-
-    /**
-     * speed test duration set to 3s.
-     */
-    private val SPEED_TEST_DURATION = 10000
-
-    /**
-     * amount of time between each speed test report set to 1s.
-     */
-    private val REPORT_INTERVAL = 1000
-
     /**
      * set socket timeout to 3s.
      */
-    private val SOCKET_TIMEOUT = 3000
+    private val SOCKET_TIMEOUT = 5000
 
     /**
      * speed test socket.
@@ -118,7 +112,7 @@ class SpeedTesterViewModel @Inject constructor(
 
     private val hasPermission = true
 
-    private var testRunning = "Download"
+
 
     init {
         viewModelScope.launch {
@@ -152,7 +146,6 @@ class SpeedTesterViewModel @Inject constructor(
                         viewModelScope.launch {
                             simState.sim1Rssi = result
                             _state.send(simState)
-                            Log.d("State In VM",_state.toString())
                         }
                     }else if(simInfo[1].isRegistered){
                         val result = getRssiValue(simInfo[1])
