@@ -65,6 +65,8 @@ dependencies {
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
 
+    implementation 'androidx.compose.runtime:runtime-livedata:1.1.0-rc01'
+
     // speed test repo
     implementation 'fr.bmartel:jspeedtest:1.32.1'
 
@@ -74,8 +76,8 @@ dependencies {
     implementation "com.google.accompanist:accompanist-flowlayout:0.17.0"
 
     // Coroutines
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.2'
 
     // Coroutine Lifecycle Scopes
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.4.0"

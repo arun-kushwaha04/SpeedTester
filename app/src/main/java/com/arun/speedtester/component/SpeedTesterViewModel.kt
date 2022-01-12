@@ -1,34 +1,30 @@
 package com.arun.speedtester.component
 
 import android.annotation.SuppressLint
-import android.app.Application
-import android.content.Context
 import android.os.Build
 import android.telephony.*
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.material.contentColorFor
-import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
-import com.arun.speedtester.checkHasAllPermission
-import com.arun.speedtester.requestPermission
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ActivityContext
-import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.bmartel.speedtest.SpeedTestReport
 import fr.bmartel.speedtest.SpeedTestSocket
 import fr.bmartel.speedtest.inter.ISpeedTestListener
 import fr.bmartel.speedtest.model.SpeedTestError
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.concurrent.thread
+import kotlin.math.roundToInt
 
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
 @HiltViewModel
@@ -36,14 +32,112 @@ class SpeedTesterViewModel @Inject constructor(
     telephonyManager: TelephonyManager?,
     telephonySubscriptionManager: SubscriptionManager?
 ) : ViewModel() {
-    private var _state = mutableStateOf(simState())
-    val state = _state
+    //setting up the channel to
+    var simState = simState()
+    private var _state = Channel<simState>()
+    val state = _state.receiveAsFlow()
 
-    val hasPermission = true
+
+    var sim1DownloadSpeed by mutableStateOf("-")
+    fun updateSim1DownloadSpeed(speed: String){
+        sim1DownloadSpeed = speed
+    }
+
+    var sim1UploadSpeed by mutableStateOf("-")
+    fun updateSim1UploadSpeed(speed: String){
+        sim1UploadSpeed = speed
+    }
+
+    var sim2DownloadSpeed by mutableStateOf("-")
+    fun updateSim2DownloadSpeed(speed: String){
+        sim2DownloadSpeed = speed
+    }
+
+    var sim2UploadSpeed by mutableStateOf("-")
+    fun updateSim2UploadSpeed(speed: String){
+        sim2UploadSpeed = speed
+    }
+
+    var sim1Name by mutableStateOf("")
+    fun updateSim1Name(name: String){
+        sim1Name = name
+    }
+
+    var sim2Name by mutableStateOf("")
+    fun updateSim2Name(name: String){
+        sim2Name = name
+    }
+
+    var sim1RssiValue by mutableStateOf("-")
+    fun updateSim1RssiValue(value: String){
+        sim1RssiValue =value
+    }
+
+    var sim2RssiValue by mutableStateOf("-")
+    fun updateSim2RssiValue(value: String){
+        sim2RssiValue =value
+    }
+
+    /**
+     * spedd examples server uri.
+     */
+    private val SPEED_TEST_SERVER_URI_DL = "http://ipv4.ikoula.testdebit.info/10M.iso"
+
+
+    /**
+     * speed test duration set to 3s.
+     */
+    private val SPEED_TEST_DURATION = 10000
+
+    /**
+     * amount of time between each speed test report set to 1s.
+     */
+    private val REPORT_INTERVAL = 1000
+
+    /**
+     * set socket timeout to 3s.
+     */
+    private val SOCKET_TIMEOUT = 3000
+
+    /**
+     * speed test socket.
+     */
+    private val speedTestSocket = SpeedTestSocket()
+
+    /**
+     * speed examples server uri.
+     */
+    private val SPEED_TEST_SERVER_URI_UL = "http://ipv4.ikoula.testdebit.info/"
+
+    /**
+     * upload 5Mo file size.
+     */
+    private val FILE_SIZE = 5000000
+
+    private var chainCount = 1
+
+    private val hasPermission = true
+
+    private var testRunning = "Download"
 
     init {
-        getSimRssiValue(telephonyManager, hasPermission)
-        getSimOperatorName(telephonySubscriptionManager, hasPermission)
+        viewModelScope.launch {
+            getSimOperatorName(telephonySubscriptionManager, hasPermission)
+            getSimRssiValue(telephonyManager, hasPermission)
+            test(speedTestSocket)
+        }
+    }
+    
+//    fun updateSimName(name: String) = viewModelScope.launch{
+//        simState.sim1DownloadSpeed = name
+//        _state.send(simState)
+//        Log.d("State In VM", _state.toString())
+//    }
+
+    fun runTest(name: String) = CoroutineScope(Dispatchers.Default).launch {
+        Log.d("Run Test",name)
+        Log.d("Download Test Started","Download Test Running")
+        speedTestSocket.startDownload(SPEED_TEST_SERVER_URI_DL)
     }
 
     @SuppressLint("MissingPermission")
@@ -54,12 +148,20 @@ class SpeedTesterViewModel @Inject constructor(
                 for (i in simInfo.indices) {
                     if(i == 0 && simInfo[0].isRegistered){
                         val result = getRssiValue(simInfo[0])
-                        _state.value.sim1Rssi = result
-//                        _state.value = (simState(sim1Rssi = result))
+                        Log.d("Sim1 Rssi",result.toString())
+                        viewModelScope.launch {
+                            simState.sim1Rssi = result
+                            _state.send(simState)
+                            Log.d("State In VM",_state.toString())
+                        }
                     }else if(simInfo[1].isRegistered){
                         val result = getRssiValue(simInfo[1])
-                        _state.value.sim2Rssi = result
-//                        _state.value = (simState(sim2Rssi = result))
+                        Log.d("Sim2 Rssi",result.toString())
+                        viewModelScope.launch {
+                            simState.sim2Rssi = result
+                            _state.send(simState)
+                            Log.d("State In VM",_state.toString())
+                        }
                     }
                 }
             }
@@ -75,12 +177,19 @@ class SpeedTesterViewModel @Inject constructor(
             if(localList.isNotEmpty()){
                 for(i in localList.indices){
                     if(i == 0){
-//                        _state.value = (simState(sim1 = (localList[0] as SubscriptionInfo).carrierName.toString()))
-                        _state.value.sim1 = (localList[0] as SubscriptionInfo).carrierName.toString()
+                        viewModelScope.launch {
+                            simState.sim1 = (localList[0] as SubscriptionInfo).carrierName.toString()
+                            _state.send(simState)
+                            Log.d("State In VM",_state.toString())
+                        }
+
                     }
                     else{
-//                        _state.value = (simState(sim2 = (localList[1] as SubscriptionInfo).carrierName.toString()))
-                        _state.value.sim2 = (localList[1] as SubscriptionInfo).carrierName.toString()
+                        viewModelScope.launch {
+                            simState.sim1 = (localList[1] as SubscriptionInfo).carrierName.toString()
+                            _state.send(simState)
+                            Log.d("State In VM",_state.toString())
+                        }
                     }
                 }
             }
@@ -98,14 +207,39 @@ class SpeedTesterViewModel @Inject constructor(
         return strength1
     }
 
-    private val speedTestSocket = SpeedTestSocket()
-
-    fun test(){
+    private fun test(speedTestSocket: SpeedTestSocket){
         speedTestSocket.addSpeedTestListener(object : ISpeedTestListener {
             override fun onCompletion(report: SpeedTestReport) {
                 // called when download/upload is complete
                 Log.d("Completed Test", "[COMPLETED] rate in octet/s : " + report.transferRateOctet)
                 Log.d("Completed test", "[COMPLETED] rate in bit/s   : " + report.transferRateBit)
+
+                if(testRunning == "Download")
+                    viewModelScope.launch {
+                        Log.d("Download Test Ended","Download Test Ended")
+                        simState.sim1DownloadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        _state.send(simState)
+                    }
+                else{
+                    viewModelScope.launch {
+                        Log.d("Upload Test Ended","Upload Test Ended")
+                        simState.sim1UploadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        _state.send(simState)
+                    }
+                }
+                if (chainCount > 0) {
+                    if (chainCount % 2 != 0) {
+                        Log.d("Upload Test Started","Upload Test Running")
+                        testRunning = "Upload"
+                        speedTestSocket.startUpload(SPEED_TEST_SERVER_URI_UL, FILE_SIZE);
+                    } else {
+                        speedTestSocket.startDownload(SPEED_TEST_SERVER_URI_DL);
+                    }
+                    chainCount--;
+                } else {
+                    Log.d("Test Ended","Test Ended Yahoo")
+                }
+
             }
 
             override fun onError(speedTestError: SpeedTestError, errorMessage: String) {
@@ -119,15 +253,21 @@ class SpeedTesterViewModel @Inject constructor(
                 Log.d("Progress", "[PROGRESS] progress : $percent%")
                 Log.d("Progress", "[PROGRESS] rate in octet/s : " + report.transferRateOctet)
                 Log.d("Progress", "[PROGRESS] rate in bit/s   : " + report.transferRateBit)
+                if(testRunning == "Download")
+                    viewModelScope.launch {
+                        simState.sim1DownloadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        _state.send(simState)
+                    }
+                else{
+                    viewModelScope.launch {
+                        simState.sim1UploadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        _state.send(simState)
+                    }
+                }
             }
         })
 
-        CoroutineScope(Dispatchers.Default).launch {
-            speedTestSocket.startDownload("http://ipv4.ikoula.testdebit.info/1M.iso");
-        }
+
     }
-
-
-
 
 }
