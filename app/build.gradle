@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId "com.arun.speedtester"
-        minSdk 21
+        minSdk 22
         targetSdk 31
         versionCode 1
         versionName "1.0"

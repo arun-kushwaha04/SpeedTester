@@ -1,36 +1,33 @@
 package com.arun.speedtester.component
 
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arun.speedtester.ui.theme.Spacing
-import fr.bmartel.speedtest.SpeedTestSocket
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
 @Composable
 fun SpeedTester(
-    viewModel: SpeedTesterViewModel = hiltViewModel()
-){
-    var text by remember { mutableStateOf("-")}
-    var text2 by remember { mutableStateOf("-")}
-    var state by remember { mutableStateOf(simState()) }
+    viewModel: SpeedTesterViewModel = hiltViewModel(),
+    scope: CoroutineScope,
+    scaffoldState: ScaffoldState
+) {
 
-
-    Log.d("Current State", state.toString())
-    LaunchedEffect(key1 = true){
-        viewModel.state.collect{
-            state = it
-            text = if(it.sim1DownloadSpeed == null) "-" else it.sim1DownloadSpeed.toString()
-            text2 = if(it.sim1UploadSpeed == null) "-" else it.sim1UploadSpeed.toString()
+    LaunchedEffect(key1 = viewModel.showScaffold) {
+        if (viewModel.showScaffold) {
+            scope.launch {
+                scaffoldState.snackbarHostState.showSnackbar(viewModel.messageForScaffoldState)
+//                delay(2000)
+//                viewModel.hideScaffold()
+            }
         }
     }
 
@@ -39,21 +36,19 @@ fun SpeedTester(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if(state.sim1 != null)SimBox(
-            simRssi = state.sim1Rssi,
-            simName = state.sim1,
-            uploadSpeed = text2,
-            downloadSpeed = text,
-            newFun = {
-                viewModel.runTest("sim1")
-            }
+        SimBox(
+            simRssi = viewModel.sim1RssiValue,
+            simName = viewModel.sim1Name,
+            uploadSpeed = viewModel.sim1UploadSpeed,
+            downloadSpeed = viewModel.sim1DownloadSpeed,
+            onClick = { viewModel.runTest("sim1") }
         )
-        if(state.sim2 != null)SimBox(
-            simRssi = state.sim2Rssi,
-            simName = state.sim2,
-            uploadSpeed = state.sim2UploadSpeed,
-            downloadSpeed = state.sim2DownloadSpeed,
-            newFun = { viewModel.runTest("sim2") }
+        SimBox(
+            simRssi = viewModel.sim2RssiValue,
+            simName = viewModel.sim2Name,
+            uploadSpeed = viewModel.sim2UploadSpeed,
+            downloadSpeed = viewModel.sim2DownloadSpeed,
+            onClick = { viewModel.runTest("sim2") }
         )
     }
 
@@ -61,19 +56,20 @@ fun SpeedTester(
 
 @Composable
 fun SimBox(
-    simRssi:Int?,
-    simName:String?,
-    uploadSpeed:String?,
-    downloadSpeed:String?,
-    newFun: () -> Unit
-){
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(MaterialTheme.Spacing.medium)) {
+    simRssi: String?,
+    simName: String?,
+    uploadSpeed: String?,
+    downloadSpeed: String?,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(MaterialTheme.Spacing.medium)
+    ) {
         if (simName != null) {
             Text(text = simName)
-        }
-        else{
+        } else {
             Text(text = "-")
         }
         Row(
@@ -83,18 +79,18 @@ fun SimBox(
         ) {
             Column {
                 Text(text = "Rssi")
-                Text(text = if(simRssi!=null) simRssi.toString() else "-")
+                Text(text = if (simRssi != "-") simRssi.toString() else "-")
             }
             Column {
                 Text(text = "Download")
-                Text(text = if(downloadSpeed != null) "$downloadSpeed Mbps" else "-")
+                Text(text = if (downloadSpeed != "-") "$downloadSpeed Mbps" else "-")
             }
             Column {
                 Text(text = "Upload")
-                Text(text = if(uploadSpeed != null) "$uploadSpeed Mbps" else "-")
+                Text(text = if (uploadSpeed != "-") "$uploadSpeed Mbps" else "-")
             }
         }
-        Button(onClick = newFun) {
+        Button(onClick = onClick) {
             Text(text = "Check")
         }
     }

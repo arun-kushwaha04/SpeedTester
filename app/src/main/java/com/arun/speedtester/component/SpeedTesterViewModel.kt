@@ -80,8 +80,8 @@ class SpeedTesterViewModel @Inject constructor(
 
     private var testRunning = ""
     private var simUsedInTest = "sim1"
-    private var showErrorMessage by mutableStateOf(false)
-    private var messageForScaffoldState by mutableStateOf("")
+    var showScaffold by mutableStateOf(false)
+    var messageForScaffoldState by mutableStateOf("")
 
     /**
      * spedd examples server uri.
@@ -104,9 +104,9 @@ class SpeedTesterViewModel @Inject constructor(
     private val SPEED_TEST_SERVER_URI_UL = "http://ipv4.ikoula.testdebit.info/"
 
     /**
-     * upload 5Mo file size.
+     * upload 2Mo file size.
      */
-    private val FILE_SIZE = 5000000
+    private val FILE_SIZE = 2000000
 
     private var chainCount = 1
 
@@ -129,9 +129,19 @@ class SpeedTesterViewModel @Inject constructor(
 //    }
 
     fun runTest(name: String) = CoroutineScope(Dispatchers.Default).launch {
-        Log.d("Run Test",name)
-        Log.d("Download Test Started","Download Test Running")
-        speedTestSocket.startDownload(SPEED_TEST_SERVER_URI_DL)
+        if(testRunning.isNotBlank()){
+            showScaffold = true
+            messageForScaffoldState = "A network test Is already running."
+        }else{
+            Log.d("Run Test",name)
+            Log.d("Download Test Started","Download Test Running")
+            testRunning = "Download"
+            speedTestSocket.startDownload(SPEED_TEST_SERVER_URI_DL)
+        }
+    }
+
+    fun hideScaffold(){
+        showScaffold = false
     }
 
     @SuppressLint("MissingPermission")
@@ -171,6 +181,7 @@ class SpeedTesterViewModel @Inject constructor(
                 for(i in localList.indices){
                     if(i == 0){
                         viewModelScope.launch {
+                            sim1Name = (localList[0] as SubscriptionInfo).carrierName.toString()
                             simState.sim1 = (localList[0] as SubscriptionInfo).carrierName.toString()
                             _state.send(simState)
                             Log.d("State In VM",_state.toString())
@@ -179,6 +190,7 @@ class SpeedTesterViewModel @Inject constructor(
                     }
                     else{
                         viewModelScope.launch {
+                            sim2Name = (localList[1] as SubscriptionInfo).carrierName.toString()
                             simState.sim1 = (localList[1] as SubscriptionInfo).carrierName.toString()
                             _state.send(simState)
                             Log.d("State In VM",_state.toString())
@@ -210,14 +222,12 @@ class SpeedTesterViewModel @Inject constructor(
                 if(testRunning == "Download")
                     viewModelScope.launch {
                         Log.d("Download Test Ended","Download Test Ended")
-                        simState.sim1DownloadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
-                        _state.send(simState)
+                        sim1DownloadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
                     }
                 else{
                     viewModelScope.launch {
                         Log.d("Upload Test Ended","Upload Test Ended")
-                        simState.sim1UploadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
-                        _state.send(simState)
+                        sim1UploadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
                     }
                 }
                 if (chainCount > 0) {
@@ -230,6 +240,7 @@ class SpeedTesterViewModel @Inject constructor(
                     }
                     chainCount--;
                 } else {
+                    testRunning = ""
                     Log.d("Test Ended","Test Ended Yahoo")
                 }
 
@@ -246,14 +257,17 @@ class SpeedTesterViewModel @Inject constructor(
                 Log.d("Progress", "[PROGRESS] progress : $percent%")
                 Log.d("Progress", "[PROGRESS] rate in octet/s : " + report.transferRateOctet)
                 Log.d("Progress", "[PROGRESS] rate in bit/s   : " + report.transferRateBit)
+
                 if(testRunning == "Download")
                     viewModelScope.launch {
-                        simState.sim1DownloadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        sim1DownloadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
+                        simState.sim1DownloadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
                         _state.send(simState)
                     }
                 else{
                     viewModelScope.launch {
-                        simState.sim1UploadSpeed = ((report.transferRateBit / (100000).toBigDecimal()).toFloat().roundToInt() / 10F).toString()
+                        sim1UploadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
+                        simState.sim1UploadSpeed = ((report.transferRateBit / (10000).toBigDecimal()).toFloat().roundToInt() / 100F).toString()
                         _state.send(simState)
                     }
                 }
