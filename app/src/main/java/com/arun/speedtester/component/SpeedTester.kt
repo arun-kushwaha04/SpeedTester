@@ -1,16 +1,18 @@
 package com.arun.speedtester.component
 
+import android.content.Context
 import android.os.Build
+import android.telephony.SubscriptionManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arun.speedtester.ui.theme.Spacing
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
@@ -25,11 +27,12 @@ fun SpeedTester(
         if (viewModel.showScaffold) {
             scope.launch {
                 scaffoldState.snackbarHostState.showSnackbar(viewModel.messageForScaffoldState)
-//                delay(2000)
-//                viewModel.hideScaffold()
             }
         }
     }
+
+//    val subscriptionManager = LocalContext.current.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+    val telephonySubscriptionManager = viewModel.telephonySubscriptionManager
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -41,14 +44,14 @@ fun SpeedTester(
             simName = viewModel.sim1Name,
             uploadSpeed = viewModel.sim1UploadSpeed,
             downloadSpeed = viewModel.sim1DownloadSpeed,
-            onClick = { viewModel.runTest("sim1") }
+            onClick = { viewModel.runTest("sim1", telephonySubscriptionManager) }
         )
         SimBox(
             simRssi = viewModel.sim2RssiValue,
             simName = viewModel.sim2Name,
             uploadSpeed = viewModel.sim2UploadSpeed,
             downloadSpeed = viewModel.sim2DownloadSpeed,
-            onClick = { viewModel.runTest("sim2") }
+            onClick = { viewModel.runTest("sim2",telephonySubscriptionManager) }
         )
     }
 

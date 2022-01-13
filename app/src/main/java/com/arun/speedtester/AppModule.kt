@@ -1,6 +1,7 @@
 package com.arun.speedtester
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Build
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
@@ -23,6 +24,14 @@ object AppModule {
         @ApplicationContext context: Context
     ): TelephonyManager?{
         return context.applicationContext.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
+    }
+
+    @Singleton
+    @Provides
+    fun getConnectivityManagerService(
+        @ApplicationContext context: Context
+    ): ConnectivityManager?{
+        return context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
     }
 
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
