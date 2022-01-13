@@ -1,15 +1,13 @@
 package com.arun.speedtester.component
 
-import android.content.Context
 import android.os.Build
-import android.telephony.SubscriptionManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arun.speedtester.ui.theme.Spacing
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +21,7 @@ fun SpeedTester(
     scaffoldState: ScaffoldState
 ) {
 
-    LaunchedEffect(key1 = viewModel.showScaffold) {
+    LaunchedEffect(key1 = viewModel.messageForScaffoldState) {
         if (viewModel.showScaffold) {
             scope.launch {
                 scaffoldState.snackbarHostState.showSnackbar(viewModel.messageForScaffoldState)
@@ -31,30 +29,29 @@ fun SpeedTester(
         }
     }
 
-//    val subscriptionManager = LocalContext.current.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
-    val telephonySubscriptionManager = viewModel.telephonySubscriptionManager
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        SimBox(
-            simRssi = viewModel.sim1RssiValue,
-            simName = viewModel.sim1Name,
-            uploadSpeed = viewModel.sim1UploadSpeed,
-            downloadSpeed = viewModel.sim1DownloadSpeed,
-            onClick = { viewModel.runTest("sim1", telephonySubscriptionManager) }
-        )
-        SimBox(
-            simRssi = viewModel.sim2RssiValue,
-            simName = viewModel.sim2Name,
-            uploadSpeed = viewModel.sim2UploadSpeed,
-            downloadSpeed = viewModel.sim2DownloadSpeed,
-            onClick = { viewModel.runTest("sim2",telephonySubscriptionManager) }
-        )
+    Column(modifier = Modifier.fillMaxSize().padding(10.dp),horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = viewModel.messageOfTest)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SimBox(
+                simRssi = viewModel.sim1RssiValue,
+                simName = viewModel.sim1Name,
+                uploadSpeed = viewModel.sim1UploadSpeed,
+                downloadSpeed = viewModel.sim1DownloadSpeed,
+                onClick = { viewModel.runTest("sim1") }
+            )
+            SimBox(
+                simRssi = viewModel.sim2RssiValue,
+                simName = viewModel.sim2Name,
+                uploadSpeed = viewModel.sim2UploadSpeed,
+                downloadSpeed = viewModel.sim2DownloadSpeed,
+                onClick = { viewModel.runTest("sim2") }
+            )
+        }
     }
-
 }
 
 @Composable
@@ -93,8 +90,8 @@ fun SimBox(
                 Text(text = if (uploadSpeed != "-") "$uploadSpeed Mbps" else "-")
             }
         }
-        Button(onClick = onClick) {
-            Text(text = "Check")
+        Button(onClick = onClick, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text(text = if(downloadSpeed == "-" && uploadSpeed == "-")"Check" else "Re-Check")
         }
     }
 }

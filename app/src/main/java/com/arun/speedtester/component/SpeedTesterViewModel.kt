@@ -1,8 +1,6 @@
 package com.arun.speedtester.component
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Build
 import android.telephony.*
 import android.util.Log
@@ -12,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.bmartel.speedtest.SpeedTestReport
 import fr.bmartel.speedtest.SpeedTestSocket
@@ -20,29 +17,11 @@ import fr.bmartel.speedtest.inter.ISpeedTestListener
 import fr.bmartel.speedtest.model.SpeedTestError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import android.telephony.SubscriptionInfo
-
-import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-
-import androidx.core.app.ActivityCompat
-
 import android.telephony.SubscriptionManager
-
-import android.telephony.TelephonyManager
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.lang.Exception
-import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.Method
-import android.net.NetworkInfo
-import kotlinx.coroutines.delay
 
 
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
@@ -50,14 +29,11 @@ import kotlinx.coroutines.delay
 class SpeedTesterViewModel @Inject constructor(
     telephonyManager: TelephonyManager?,
     telephonySubscriptionManager: SubscriptionManager?,
-    cm: ConnectivityManager?
 ) : ViewModel() {
-    val telephonySubscriptionManager = telephonySubscriptionManager
     //setting up the channel to
 //    var simState = simState()
 //    private var _state = Channel<simState>()
 //    val state = _state.receiveAsFlow()
-
 
     var sim1DownloadSpeed by mutableStateOf("-")
     fun updateSim1DownloadSpeed(speed: String) {
@@ -126,9 +102,9 @@ class SpeedTesterViewModel @Inject constructor(
     private val SPEED_TEST_SERVER_URI_UL = "http://ipv4.ikoula.testdebit.info/"
 
     /**
-     * upload 2Mo file size.
+     * upload 1Mo file size.
      */
-    private val FILE_SIZE = 2000000
+    private val FILE_SIZE = 1000000
 
     private var chainCount = 1
 
@@ -140,7 +116,6 @@ class SpeedTesterViewModel @Inject constructor(
             getSimOperatorName(telephonySubscriptionManager, hasPermission)
             getSimRssiValue(telephonyManager, hasPermission)
             test(speedTestSocket)
-            getNetworkInfo(cm)
         }
     }
 
@@ -150,21 +125,20 @@ class SpeedTesterViewModel @Inject constructor(
 //        Log.d("State In VM", _state.toString())
 //    }
 
-    fun runTest(name: String, subscriptionManager: SubscriptionManager?) = CoroutineScope(Dispatchers.Default).launch {
+    fun runTest(name: String) = CoroutineScope(Dispatchers.Default).launch {
         if (testRunning.isNotBlank()) {
             showScaffold = true
             messageForScaffoldState = "A network test Is already running."
-            showScaffold = false
         } else {
             Log.d("Run Test", name)
             Log.d("Download Test Started", "Download Test Running")
             testRunning = "Download"
             showScaffold = true
+            chainCount = 1
             val message = if(simUsedInTest == "sim1") "A network test started for $sim1Name."
-            else "A network test started for $sim2Name."
+            else "Network test started for $sim2Name."
             messageForScaffoldState = message
             speedTestSocket.startDownload(SPEED_TEST_SERVER_URI_DL)
-            showScaffold = false
         }
     }
 
@@ -227,6 +201,7 @@ class SpeedTesterViewModel @Inject constructor(
     }
 
     private fun test(speedTestSocket: SpeedTestSocket) {
+        speedTestSocket.socketTimeout = SOCKET_TIMEOUT
         speedTestSocket.addSpeedTestListener(object : ISpeedTestListener {
             override fun onCompletion(report: SpeedTestReport) {
 //                Log.d("Completed Test", "[COMPLETED] rate in octet/s : " + report.transferRateOctet)
@@ -260,11 +235,11 @@ class SpeedTesterViewModel @Inject constructor(
                     chainCount--;
                 } else {
                     testRunning = ""
+                    messageOfTest = ""
                     showScaffold = true
                     val message = if(simUsedInTest == "sim1") "Network test ended for $sim1Name"
                     else "Network test ended for $sim2Name"
-                    messageForScaffoldState = "Network test ended for $message. "
-                    showScaffold = false
+                    messageForScaffoldState = message
                     Log.d("Test Ended", "Test Ended Yahoo")
                 }
 
@@ -275,8 +250,16 @@ class SpeedTesterViewModel @Inject constructor(
                 val value = if(simUsedInTest == "sim1") sim1Name else sim2Name
                 messageForScaffoldState = "It looks like $value don't have a active network connection. Please switch on mobile data before running test"
                 showScaffold = true
-                showScaffold = false
                 testRunning = ""
+                messageOfTest = "Error occurred in network test for $value"
+                if(simUsedInTest == "sim1"){
+                    sim1UploadSpeed = "-"
+                    sim1DownloadSpeed = "-"
+                }
+                else{
+                    sim2UploadSpeed = "-"
+                    sim2DownloadSpeed = "-"
+                }
             }
 
             override fun onProgress(percent: Float, report: SpeedTestReport) {
@@ -308,45 +291,5 @@ class SpeedTesterViewModel @Inject constructor(
                 }
             }
         })
-    }
-
-
-
-    private fun getDefaultDataSubscriptionId(subscriptionManager: SubscriptionManager?): Int? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val nDataSubscriptionId = SubscriptionManager.getDefaultDataSubscriptionId()
-            if (nDataSubscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-                return nDataSubscriptionId
-            }
-        }
-        return try {
-            val subscriptionClass = Class.forName(subscriptionManager!!.javaClass.name)
-            try {
-                val getDefaultDataSubscriptionId =
-                    subscriptionClass.getMethod("getDefaultDataSubId")
-                try {
-                    getDefaultDataSubscriptionId.invoke(subscriptionManager) as Int
-                } catch (e: IllegalAccessException) {
-                    return null
-                } catch (e: InvocationTargetException) {
-                    return null
-                }
-            } catch (e: NoSuchMethodException) {
-                return null
-            }
-        } catch (e: ClassNotFoundException) {
-            return null
-        }
-    }
-}
-
-
-fun getNetworkInfo(cm: ConnectivityManager?): String{
-    return if(Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP_MR1){
-        Log.d("Network manager",cm!!.activeNetwork.toString())
-        cm.activeNetwork.toString()
-    }else{
-        Log.d("Network manager",cm!!.activeNetworkInfo.toString())
-        cm.activeNetworkInfo.toString()
-    }
+    }    
 }
